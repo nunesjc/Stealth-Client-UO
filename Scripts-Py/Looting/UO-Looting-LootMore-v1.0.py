@@ -1,69 +1,128 @@
-program UOSlaveOwnerLoot;
+# UO-Looting-LootMore-v1.0.py
 
-procedure loot;
-var
-  corpse, item: Cardinal;
-  itemIds: array[0..28] of integer;
-  i: Integer;
-begin
-  itemIds[0] := $26B7;
-  itemIds[1] := $0EED;
-  itemIds[2] := $0FBF;
-  itemIds[3] := $0FC0;
-  itemIds[4] := $0FC1;
-  itemIds[5] := $0FC3;
-  itemIds[6] := $0FC4;
-  itemIds[7] := $0FC5;
-  itemIds[8] := $0FC6;
-  itemIds[9] := $0F09;
-  itemIds[10] := $0F0E;
-  itemIds[11] := $175D;
-  itemIds[12] := $0F0C;
-  itemIds[13] := $0F09;
-  itemIds[14] := $3155;
-  itemIds[15] := $0E75; // novo
-  itemIds[16] := $1BFB;
-  itemIds[17] := $0F3F;
-  itemIds[18] := $1412;
-  itemIds[19] := $1415;
-  itemIds[20] := $13B9;
-  itemIds[21] := $1414;
-  itemIds[22] := $1413;
-  itemIds[23] := $1411;
-  itemIds[24] := $1410;
-  itemIds[25] := $1B76;
-  itemIds[26] := $1B76;
-  itemIds[27] := $1B76;
-  itemIds[28] := $1F31;
+"""
+UO-Looting-LootMore-v1.0.py
 
-  FindDistance := 3;
-  if FindType($2006, Ground) > 0 then // Procura por corpos no chão (ID $2006)
-  begin
-    corpse := FindItem; // Pega o ID do corpo encontrado
-    UseObject(corpse); // Interage com o corpo para acessar o inventário
-    Wait(200); // Aguarda um pouco para o inventário abrir (ajuste conforme necessário)
+Automatiza o saque de itens específicos de corpos no chão em Ultima Online.
 
-    // Varre a lista de IDs de itens para saquear
-    for i := 0 to High(itemIds) do
-    begin
-      // Se um dos itens desejados está no corpo, saqueia o item
-      if FindType(itemIds[i], corpse) > 0 then
-      begin
-        item := FindItem; // Pega o ID do item encontrado
-        AddToSystemJournal('Item encontrado! Saqueando...');
-        MoveItem(item, FindQuantity, Backpack, 1, 1, 0);
-        Wait(200); // Aguarda um pouco entre as ações para não sobrecarregar o servidor
-      end;
-    end;
-    Ignore(corpse); // Ignora o corpo para não verificar novamente
-  end;
-end;
+Autor: Azarras Zehan
+Revisão: v1.0
+Data: 27/04/2024
+"""
 
-begin
-  // Loop infinito para continuar verificando e saqueando corpos indefinidamente
-  while True do
-  begin
-    loot; // Chama a procedure loot a cada iteração do loop
-    Wait(200); // Aguarda 1 segundo (1000 milissegundos) antes da próxima iteração
-  end;
-end.
+import time
+import logging
+from py_stealth import *
+
+# Configurações de Logging
+logging.basicConfig(
+    filename='UO-Looting-LootMore.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+# IDs de Itens a Saquear
+ITEM_IDS = [
+    0x26B7, 0x0EED, 0x0FBF, 0x0FC0, 0x0FC1, 0x0FC3, 0x0FC4, 0x0FC5,
+    0x0FC6, 0x0F09, 0x0F0E, 0x175D, 0x0F0C, 0x0F09, 0x3155, 0x0E75,
+    0x1BFB, 0x0F3F, 0x1412, 0x1415, 0x13B9, 0x1414, 0x1413, 0x1411,
+    0x1410, 0x1B76, 0x1B76, 0x1B76, 0x1F31
+]
+
+CORPSE_ID = 0x2006  # ID do Corpo no Chão
+SEARCH_DISTANCE = 3  # Distância para buscar corpos
+
+
+def initialize_looting():
+    """
+  Inicializa as configurações de saque.
+  """
+    SetFindDistance(SEARCH_DISTANCE)
+    logging.info("Inicialização do Looting configurada com distância de busca de %d.", SEARCH_DISTANCE)
+
+
+def find_corpse():
+    """
+  Procura por um corpo no chão.
+
+  Retorna:
+      int: ID do corpo encontrado ou 0 se não encontrado.
+  """
+    if FindType(CORPSE_ID, Ground()) > 0:
+        corpse_id = FindItem()
+        logging.info("Corpo encontrado! ID: %d", corpse_id)
+        return corpse_id
+    return 0
+
+
+def open_corpse(corpse_id):
+    """
+  Interage com o corpo para abrir seu inventário.
+
+  Args:
+      corpse_id (int): ID do corpo a ser aberto.
+  """
+    UseObject(corpse_id)
+    logging.info("Interagiu com o corpo ID: %d para abrir inventário.", corpse_id)
+    time.sleep(0.2)  # Aguarda 200 milissegundos
+
+
+def loot_items(corpse_id):
+    """
+  Varre os itens dentro do corpo e move os desejados para a mochila do jogador.
+
+  Args:
+      corpse_id (int): ID do corpo do qual saquear itens.
+  """
+    for item_id in ITEM_IDS:
+        if FindType(item_id, corpse_id) > 0:
+            item = FindItem()
+            quantity = FindQuantity()
+            logging.info("Item encontrado! ID: %d | Quantidade: %d | Saqueando...", item_id, quantity)
+            MoveItem(item, quantity, Backpack(), 1, 1, 0)
+            time.sleep(0.2)  # Aguarda 200 milissegundos
+
+
+def ignore_corpse(corpse_id):
+    """
+  Ignora o corpo para não verificar novamente.
+
+  Args:
+      corpse_id (int): ID do corpo a ser ignorado.
+  """
+    Ignore(corpse_id)
+    logging.info("Corpo ID: %d ignorado para evitar verificações futuras.", corpse_id)
+
+
+def loot():
+    """
+  Função principal de saque que coordena todas as operações.
+  """
+    corpse_id = find_corpse()
+    if corpse_id != 0:
+        open_corpse(corpse_id)
+        loot_items(corpse_id)
+        ignore_corpse(corpse_id)
+    else:
+        logging.info("Nenhum corpo encontrado no momento.")
+
+
+def main():
+    """
+  Loop principal que executa a função de saque indefinidamente.
+  """
+    logging.info("Iniciando UO-Looting-LootMore-v1.0.py")
+    initialize_looting()
+
+    while True:
+        if Dead():
+            logging.warning("O personagem está morto. Aguardando ressuscitação.")
+            time.sleep(1)
+            continue  # Pula para a próxima iteração do loop
+
+        loot()
+        time.sleep(0.2)  # Aguarda 200 milissegundos antes da próxima iteração
+
+
+if __name__ == "__main__":
+    main()
